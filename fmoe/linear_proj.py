@@ -71,14 +71,33 @@ class FMoELinearProj(nn.Module):
             self.c_psuedo_inv.requires_grad = False
 
 
-
     def forward(self, inp, fwd_expert_count):
         r"""
         Call MOE function
         """
         x = MOELinear.apply(inp, fwd_expert_count, self.weight, self.bias)
 
-        x_projected = torch.einsum('nkd,kds->nks', x, self.c_psuedo_inv)
+        counts = fwd_expert_count if isinstance(fwd_expert_count, torch.Tensor) else \
+             torch.tensor(fwd_expert_count, device=x.device)
+        n_experts = counts.shape[0]
+        total_tokens = x.shape[0]
+        max_tokens = counts.max().item()
+
+        expert_ids = torch.arange(n_experts, device=x.device).repeat_interleave(counts)
+
+
+        offsets = torch.cat([torch.tensor([0], device=x.device), counts.cumsum(dim=0)])
+        token_indices = torch.arange(total_tokens, device=x.device)
+        token_positions = token_indices - offsets[expert_ids]
+        
+        padded_outputs = torch.zeros(n_experts, max_tokens, x.shape[1], device=x.device, dtype=x.dtype)
+        
+        padded_outputs[expert_ids, token_positions] = x
+
+        # getting them in shape (max_tokens (effetively n_tokens), n_experts, n_features)
+        padded_outputs = padded_outputs.transpose(0, 1)
+
+        x_projected = torch.einsum('nkd,kds->nks', padded_outputs, self.c_psuedo_inv)
         return x_projected
 
     def extra_repr(self) -> str:
