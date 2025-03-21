@@ -78,19 +78,19 @@ class FMoELinearProj(nn.Module):
         x = MOELinear.apply(inp, fwd_expert_count, self.weight, self.bias)
 
         counts = fwd_expert_count if isinstance(fwd_expert_count, torch.Tensor) else \
-             torch.tensor(fwd_expert_count, device=x.device)
+             torch.tensor(fwd_expert_count, device='cuda')
         n_experts = counts.shape[0]
         total_tokens = x.shape[0]
         max_tokens = counts.max().item()
 
-        expert_ids = torch.arange(n_experts, device=x.device).repeat_interleave(counts)
+        expert_ids = torch.arange(n_experts, device='cuda').repeat_interleave(counts)
 
 
-        offsets = torch.cat([torch.tensor([0], device=x.device), counts.cumsum(dim=0)])
-        token_indices = torch.arange(total_tokens, device=x.device)
+        offsets = torch.cat([torch.tensor([0], device='cuda'), counts.cumsum(dim=0)])
+        token_indices = torch.arange(total_tokens, device='cuda')
         token_positions = token_indices - offsets[expert_ids]
         
-        padded_outputs = torch.zeros(n_experts, max_tokens, x.shape[1], device=x.device, dtype=x.dtype)
+        padded_outputs = torch.zeros(n_experts, max_tokens, x.shape[1], device='cuda', dtype=x.dtype)
         
         padded_outputs[expert_ids, token_positions] = x
 
