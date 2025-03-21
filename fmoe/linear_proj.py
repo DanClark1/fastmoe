@@ -60,6 +60,8 @@ class FMoELinearProj(nn.Module):
             torch.nn.init.kaiming_uniform_(global_weight, a=math.sqrt(5))
             self.weight = nn.Parameter(global_weight)
 
+            # print the devices that global_weight and prev_experts.weight are on
+            print(global_weight.device, prev_experts.weight.device)
             # stitch global and previous experts
             self.weight = nn.Parameter(torch.cat((global_weight, prev_experts.weight)))
             self.bias = nn.Parameter(torch.cat((global_bias, prev_experts.bias)))
