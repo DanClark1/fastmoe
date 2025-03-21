@@ -53,8 +53,8 @@ class FMoELinearProj(nn.Module):
             self.in_feat = prev_experts.in_feat
             self.out_feat = prev_experts.out_feat
             self.rank = prev_experts.rank
-            global_weight = torch.zeros(1, self.out_feat, self.in_feat)
-            global_bias = torch.zeros(1, self.out_feat)
+            global_weight = torch.zeros(1, self.out_feat, self.in_feat, device=prev_experts.weight.device)
+            global_bias = torch.zeros(1, self.out_feat, device=prev_experts.bias.device)
 
             # initialise
             torch.nn.init.kaiming_uniform_(global_weight, a=math.sqrt(5))
