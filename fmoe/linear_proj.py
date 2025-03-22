@@ -77,6 +77,17 @@ class FMoELinearProj(nn.Module):
         """
 
         print(inp.shape, fwd_expert_count)
+
+        inp_flat = inp.view(-1, inp.size(-1))
+        # sanity checks
+        assert inp_flat.ndim == 2, "Input must be 2‑D"
+        assert fwd_expert_count.ndim == 1, "fwd_expert_count must be 1‑D"
+        assert fwd_expert_count.shape[0] == self.num_expert, (
+            f"Expected {self.num_expert} experts, got {fwd_expert_count.shape[0]}"
+        )
+        assert fwd_expert_count.sum().item() == inp_flat.shape[0], (
+            f"Sum of counts ({fwd_expert_count.sum().item()}) != rows ({inp_flat.shape[0]})"
+        )
         x = MOELinear.apply(inp, fwd_expert_count, self.weight, self.bias)
 
         counts = fwd_expert_count if isinstance(fwd_expert_count, torch.Tensor) else \
