@@ -75,6 +75,8 @@ class FMoELinearProj(nn.Module):
         r"""
         Call MOE function
         """
+
+        print(inp, fwd_expert_count)
         x = MOELinear.apply(inp, fwd_expert_count, self.weight, self.bias)
 
         counts = fwd_expert_count if isinstance(fwd_expert_count, torch.Tensor) else \
