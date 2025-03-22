@@ -92,6 +92,8 @@ class FMoELinearProj(nn.Module):
 
         counts = fwd_expert_count if isinstance(fwd_expert_count, torch.Tensor) else \
              torch.tensor(fwd_expert_count, device='cuda')
+        
+        counts.to('cuda')
         n_experts = counts.shape[0]
         total_tokens = x.shape[0]
         max_tokens = counts.max().item()
