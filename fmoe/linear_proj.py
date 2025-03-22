@@ -60,14 +60,12 @@ class FMoELinearProj(nn.Module):
             torch.nn.init.kaiming_uniform_(global_weight, a=math.sqrt(5))
             self.weight = nn.Parameter(global_weight)
 
-            # print the devices that global_weight and prev_experts.weight are on
-            print(global_weight.device, prev_experts.weight.device)
             # stitch global and previous experts
             self.weight = nn.Parameter(torch.cat((global_weight, prev_experts.weight)))
             self.bias = nn.Parameter(torch.cat((global_bias, prev_experts.bias)))
 
             c_inv = torch.linalg.inv(torch.einsum('kdr,kds->krs', components, components))
-            self.c_psuedo_inv = torch.linalg.einsum('kdr,krs,kds->kds', components, c_inv, components)
+            self.c_psuedo_inv = torch.einsum('kdr,krs,kds->kds', components, c_inv, components)
 
             # freeze projection matricies
             self.c_psuedo_inv.requires_grad = False
