@@ -68,6 +68,19 @@ class FMoELinearProj(nn.Module):
             # freeze projection matricies
             self.components.requires_grad = False
 
+            # Add trainable upscaling matrices to project back to original dimension
+            # Components shape is expected to be (n_experts, source_dim, target_dim)
+            if components is not None:
+                target_dim = components.size(-1)
+                source_dim = components.size(-2)
+                self.upscale_proj = nn.Parameter(
+                    torch.randn(self.num_expert, target_dim, source_dim) * 0.02
+                )
+                if bias:
+                    self.upscale_bias = nn.Parameter(torch.zeros(self.num_expert, source_dim))
+                else:
+                    self.register_parameter("upscale_bias", None)
+
 
     def forward(self, inp, fwd_expert_count):
         r"""
@@ -86,7 +99,7 @@ class FMoELinearProj(nn.Module):
         assert fwd_expert_count.sum().item() == inp_flat.shape[0], (
             f"Sum of counts ({fwd_expert_count.sum().item()}) != rows ({inp_flat.shape[0]})"
         )
-        x = MOELinear.apply(inp, fwd_expert_count, self.weight, self.bias)
+        x = MOELinear.apply(inp.type_as(self.weight), fwd_expert_count, self.weight, self.bias)
 
         x_projected = self.project(x, fwd_expert_count, inp)
 
@@ -124,6 +137,15 @@ class FMoELinearProj(nn.Module):
         x_projected = torch.einsum('nkd,ksd->nks', padded_outputs, self.components)
 
 
+        # Project back up to original dimension using trainable matrices
+        x_projected_upscaled = torch.einsum('nks,kst->nkt', x_projected, self.upscale_proj)
+        
+        # Add bias if present
+        if self.upscale_bias is not None:
+            # Add the bias to each token (broadcasting across the max_tokens dimension)
+            x_projected_upscaled = x_projected_upscaled + self.upscale_bias.unsqueeze(0)
+
+
         # Remove padding by transposing and using advanced indexing
         # Transpose to [n_experts, max_tokens, feature_dim]
         x_projected_t = x_projected.transpose(0, 1)
@@ -136,8 +158,6 @@ class FMoELinearProj(nn.Module):
         original_shape = list(inp.shape)
         original_shape[-1] = output.size(-1)
         output = output.view(original_shape)
-        print('inp shape:', inp.shape)
-        print('output shape:', output.shape)
 
         return output
 
