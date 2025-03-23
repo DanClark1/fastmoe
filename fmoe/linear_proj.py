@@ -19,7 +19,7 @@ class FMoELinearProj(nn.Module):
     performed in parallel to increase the performance.
     The FMoELinear module provides such function.
 
-    Components are defined as a tuple of matricies U, V_1, ..., V_n where U are the global
+    Components are defined as a tensor of matricies U, V_1, ..., V_n where U are the global
     components and V_1, ..., V_n are the local components. The global expert is the first
     expert in the list of experts.
     """
@@ -64,11 +64,9 @@ class FMoELinearProj(nn.Module):
             self.weight = nn.Parameter(torch.cat((global_weight, prev_experts.weight)))
             self.bias = nn.Parameter(torch.cat((global_bias, prev_experts.bias)))
 
-            c_inv = torch.linalg.inv(torch.einsum('kdr,kds->krs', components, components))
-            self.c_psuedo_inv = torch.einsum('kdr,krs,kds->kds', components, c_inv, components)
-
+            self.components = components
             # freeze projection matricies
-            self.c_psuedo_inv.requires_grad = False
+            self.components.requires_grad = False
 
 
     def forward(self, inp, fwd_expert_count):
@@ -90,6 +88,15 @@ class FMoELinearProj(nn.Module):
         )
         x = MOELinear.apply(inp, fwd_expert_count, self.weight, self.bias)
 
+        x_projected = self.project(x, fwd_expert_count, inp)
+
+        return x_projected
+    
+
+    def project(self, x, fwd_expert_count, inp):
+        r"""
+        Project the output of the experts onto the components
+        """
         # ensure counts is a Tensor on the same device as inp
         if isinstance(fwd_expert_count, torch.Tensor):
             counts = fwd_expert_count.to(inp.device)
@@ -114,8 +121,27 @@ class FMoELinearProj(nn.Module):
         # getting them in shape (max_tokens (effetively n_tokens), n_experts, n_features)
         padded_outputs = padded_outputs.transpose(0, 1)
 
-        x_projected = torch.einsum('nkd,kds->nks', padded_outputs, self.c_psuedo_inv)
-        return x_projected
+        x_projected = torch.einsum('nkd,ksd->nks', padded_outputs, self.components)
+
+
+        # Remove padding by transposing and using advanced indexing
+        # Transpose to [n_experts, max_tokens, feature_dim]
+        x_projected_t = x_projected.transpose(0, 1)
+        
+        # Use advanced indexing to gather the correct elements
+        # For each token, get its projected value from the right expert and position
+        output = x_projected_t[expert_ids, token_positions]
+        
+        # Reshape back to match input shape
+        original_shape = list(inp.shape)
+        original_shape[-1] = output.size(-1)
+        output = output.view(original_shape)
+        print('inp shape:', inp.shape)
+        print('output shape:', output.shape)
+
+        return output
+
+
 
     def extra_repr(self) -> str:
         return "num_expert={}, in_features={}, \
