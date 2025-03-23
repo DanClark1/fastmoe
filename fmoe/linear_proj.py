@@ -149,7 +149,7 @@ class FMoELinearProj(nn.Module):
 
         # Remove padding by transposing and using advanced indexing
         # Transpose to [n_experts, max_tokens, feature_dim]
-        x_projected_t = x_projected.transpose(0, 1)
+        x_projected_t = x_projected_upscaled.transpose(0, 1)
         
         # Use advanced indexing to gather the correct elements
         # For each token, get its projected value from the right expert and position
