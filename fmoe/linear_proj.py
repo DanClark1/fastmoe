@@ -87,9 +87,6 @@ class FMoELinearProj(nn.Module):
         r"""
         Call MOE function
         """
-
-        print(inp.shape, fwd_expert_count)
-
         inp_flat = inp.view(-1, inp.size(-1))
         # sanity checks
         assert inp_flat.ndim == 2, "Input must be 2‑D"
