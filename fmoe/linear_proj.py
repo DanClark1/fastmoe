@@ -90,10 +90,12 @@ class FMoELinearProj(nn.Module):
         )
         x = MOELinear.apply(inp, fwd_expert_count, self.weight, self.bias)
 
-        counts = fwd_expert_count if isinstance(fwd_expert_count, torch.Tensor) else \
-             torch.tensor(fwd_expert_count, device='cuda')
-        
-        counts.to('cuda')
+        # ensure counts is a Tensor on the same device as inp
+        if isinstance(fwd_expert_count, torch.Tensor):
+            counts = fwd_expert_count.to(inp.device)
+        else:
+            counts = torch.tensor(fwd_expert_count, device=inp.device)
+
         n_experts = counts.shape[0]
         total_tokens = x.shape[0]
         max_tokens = counts.max().item()
