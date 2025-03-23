@@ -71,10 +71,10 @@ class FMoELinearProj(nn.Module):
             # Add trainable upscaling matrices to project back to original dimension
             # Components shape is expected to be (n_experts, source_dim, target_dim)
             if components is not None:
-                target_dim = components.size(-1)
-                source_dim = components.size(-2)
+                target_dim = components.size(-2)
+                source_dim = components.size(-1)
                 self.upscale_proj = nn.Parameter(
-                    torch.zeros(self.num_expert, source_dim, target_dim, device='cuda') * 0.02,
+                    torch.zeros(self.num_expert, target_dim, source_dim, device='cuda') * 0.02,
                 )
                 torch.nn.init.kaiming_uniform_(self.upscale_proj, a=math.sqrt(5))
                 if bias:
