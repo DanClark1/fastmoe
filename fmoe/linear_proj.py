@@ -74,8 +74,9 @@ class FMoELinearProj(nn.Module):
                 target_dim = components.size(-1)
                 source_dim = components.size(-2)
                 self.upscale_proj = nn.Parameter(
-                    torch.randn(self.num_expert, target_dim, source_dim) * 0.02
+                    torch.zeros(self.num_expert, source_dim, target_dim) * 0.02
                 )
+                torch.nn.init.kaiming_uniform_(self.upscale_proj, a=math.sqrt(5))
                 if bias:
                     self.upscale_bias = nn.Parameter(torch.zeros(self.num_expert, source_dim))
                 else:
@@ -138,7 +139,7 @@ class FMoELinearProj(nn.Module):
 
 
         # Project back up to original dimension using trainable matrices
-        x_projected_upscaled = torch.einsum('nks,kst->nkt', x_projected, self.upscale_proj)
+        x_projected_upscaled = torch.einsum('nks,ksd->nkd', x_projected, self.upscale_proj)
         
         # Add bias if present
         if self.upscale_bias is not None:
