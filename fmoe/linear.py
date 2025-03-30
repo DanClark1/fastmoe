@@ -16,7 +16,6 @@ class MOELinear(Function):
 
     @staticmethod
     def forward(ctx, global_input_buf, fwd_expert_count, weight, bias=None):
-        print(fwd_expert_count)
         global_output_buf = fmoe_cuda.linear_forward(
             global_input_buf, fwd_expert_count, weight, bias
         )
