@@ -97,12 +97,24 @@ class FMoELinearProj(nn.Module):
 
         x = MOELinear.apply(inp.type_as(self.weight), fwd_expert_count, self.weight, self.bias)
 
-        mask = torch.repeat_interleave(torch.arange(fwd_expert_count.shape[0]), fwd_expert_count)
-
         if self.components is not None:
             x_projected = self.project(x, fwd_expert_count, inp)
         else:
-            x_projected = torch.einsum('nd,ksd->nks', x, self.projection_matricies[mask])
+            outputs = []
+            start = 0
+            for expert_idx, count in enumerate(fwd_expert_count):
+                if count > 0:
+                    # Get the subset of x corresponding to this expert.
+                    expert_x = x[start:start + count]  # shape: (count, D)
+                    # Get the corresponding projection matrix, expected shape: (S, D)
+                    proj_matrix = self.projection_matricies[expert_idx]  # shape: (S, D)
+                    # Compute the projection: (count, D) @ (D, S) -> (count, S)
+                    expert_out = expert_x @ proj_matrix.t()
+                    outputs.append(expert_out)
+                    start += count
+
+            # Combine all expert outputs back into one tensor if needed.
+            x_projected = torch.cat(outputs, dim=0)
 
         return x_projected
     
