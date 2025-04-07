@@ -97,11 +97,12 @@ class FMoELinearProj(nn.Module):
 
         x = MOELinear.apply(inp.type_as(self.weight), fwd_expert_count, self.weight, self.bias)
 
+        mask = torch.repeat_interleave(torch.arange(fwd_expert_count.shape[0]), fwd_expert_count)
 
         if self.components is not None:
             x_projected = self.project(x, fwd_expert_count, inp)
         else:
-            x_projected = torch.einsum('nd,ksd->nks', x, self.projection_matricies[fwd_expert_count])
+            x_projected = torch.einsum('nd,ksd->nks', x, self.projection_matricies[mask])
 
         return x_projected
     
