@@ -26,7 +26,7 @@ class FMoELinearProj(nn.Module):
 
     def __init__(
         self,
-        components,
+        components = None,
         num_expert: int = 0,
         in_feat: int = 0,
         out_feat: int = 0,
