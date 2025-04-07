@@ -66,7 +66,6 @@ class FMoELinearProj(nn.Module):
 
             self.components = components
             # freeze projection matricies
-            self.components.requires_grad = False
 
             # Add trainable upscaling matrices to project back to original dimension
             # Components shape is expected to be (n_experts, source_dim, target_dim)
@@ -81,6 +80,13 @@ class FMoELinearProj(nn.Module):
                     self.upscale_bias = nn.Parameter(torch.zeros(self.num_expert, source_dim, device='cuda'))
                 else:
                     self.register_parameter("upscale_bias", None)
+            else:
+                # if there's no components, we just create dxd projection matricies (that will be subject to orthogonalisation)
+                projection_matricies = torch.zeros(self.num_expert, self.out_feat, self.out_feat, device='cuda') * 0.02
+                
+                self.projection_matricies = nn.Parameter(projection_matricies)
+                torch.nn.init.kaiming_uniform_(projection_matricies, a=math.sqrt(5)) # initialise the bad boys
+            
 
 
     def forward(self, inp, fwd_expert_count):
@@ -88,18 +94,14 @@ class FMoELinearProj(nn.Module):
         Call MOE function
         """
         inp_flat = inp.view(-1, inp.size(-1))
-        # sanity checks
-        assert inp_flat.ndim == 2, "Input must be 2‑D"
-        assert fwd_expert_count.ndim == 1, "fwd_expert_count must be 1‑D"
-        assert fwd_expert_count.shape[0] == self.num_expert, (
-            f"Expected {self.num_expert} experts, got {fwd_expert_count.shape[0]}"
-        )
-        assert fwd_expert_count.sum().item() == inp_flat.shape[0], (
-            f"Sum of counts ({fwd_expert_count.sum().item()}) != rows ({inp_flat.shape[0]})"
-        )
+
         x = MOELinear.apply(inp.type_as(self.weight), fwd_expert_count, self.weight, self.bias)
 
-        x_projected = self.project(x, fwd_expert_count, inp)
+
+        if self.components is not None:
+            x_projected = self.project(x, fwd_expert_count, inp)
+        else:
+            x_projected = torch.einsum('nd,ksd->nks', x, self.projection_matricies[fwd_expert_count])
 
         return x_projected
     
